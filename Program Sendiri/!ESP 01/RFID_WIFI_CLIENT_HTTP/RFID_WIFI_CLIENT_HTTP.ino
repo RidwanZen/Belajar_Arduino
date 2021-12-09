@@ -4,6 +4,15 @@
 #include <SPI.h>
 #include <MFRC522.h>
 
+//INISIALISASI LCD
+#include <LiquidCrystal_I2C.h>  //LIBRARY LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2); //Inisialisasi LCD
+
+//INISIALISASI SERVO
+#include <Servo.h>  //LIBRARY SERVO
+int outServo=5; 
+Servo servo;
+
 SoftwareSerial wifiSerial(2, 3); // RX, TX
 
 char ssid[]        = "04FS_2c9560";            // your network SSID (name)
@@ -11,7 +20,7 @@ char pass[]        = "Rahasia01";        // your network password
 int    HTTP_PORT   = 80;
 String HTTP_METHOD = "GET";
 char   HOST_NAME[] = "192.168.1.13"; // change to your PC's IP address
-String PATH_NAME   = "/rfidphp/proses.php";
+String PATH_NAME   = "/rfidui/proses.php";
 String getData;
 int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
@@ -20,10 +29,10 @@ WiFiEspClient client;
 
 #define SS_PIN 10
 #define RST_PIN 9
-#define buzzer 5
-
+#define buzzer 4
+int IR=8;
 int merah=7;
-
+int kunci=0;
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 void setup()
@@ -31,8 +40,11 @@ void setup()
   Serial.begin(115200);
   wifiSerial.begin(9600);
   WiFi.init(&wifiSerial);
+  lcd.begin();
+  servo.attach(outServo);
   pinMode(merah,OUTPUT);
-  pinMode (buzzer,OUTPUT);
+  pinMode(buzzer,OUTPUT);
+  pinMode(IR,INPUT);
   while(!Serial);
   SPI.begin();      // Initiate  SPI bus
   mfrc522.PCD_Init();   // Initiate MFRC522
@@ -65,6 +77,7 @@ void setup()
 void loop()
 {
   //Baca data
+  int bacaIR=digitalRead(IR);
   //Program yang akan dijalankan berulang-ulang
   if ( ! mfrc522.PICC_IsNewCardPresent()) {return;}
   // Select one of the cards
@@ -90,6 +103,7 @@ void loop()
     client.connect(HOST_NAME, HTTP_PORT);
     client.println(HTTP_METHOD + " " + PATH_NAME + 
                    "?rfid=" + String(uidString) + 
+                   "&namatol=bogor"
                    //"&sensor1=" + String(sensor1) + 
                    //"&sensor2=" + String(sensor2) + 
                    " HTTP/1.1");
@@ -105,34 +119,35 @@ void loop()
         getData.trim();
         
         //AMBIL DATA JSON
-        const size_t capacity = JSON_OBJECT_SIZE(8) + 130; //cari dulu nilainya pakai Arduino Json 5 Asisten
+        const size_t capacity = JSON_OBJECT_SIZE(9) + 144; //cari dulu nilainya pakai Arduino Json 5 Asisten
         DynamicJsonDocument doc(capacity);
         //StaticJsonDocument<192> doc;
         DeserializationError error = deserializeJson(doc, getData);
       
-        const char* id_dibaca       = doc["id"]; 
         const char* rfid_dibaca     = doc["rfid"]; 
         const char* nama_dibaca     = doc["nama"]; 
-        const char* alamat_dibaca   = doc["alamat"]; 
-        const char* telepon_dibaca  = doc["telepon"]; 
-        const char* tanggal_dibaca  = doc["tanggal"]; 
-        const int saldo_dibaca      = doc["saldo"];
-        const String status_dibaca        = doc["status_bayar"];
+        const char* saldoawal       = doc["saldo"]; 
+        const char* tarif_dibaca    = doc["tarif"]; 
+        const char* saldoakhir      = doc["saldo_akhir"]; 
+        const char* namatol_dibaca  = doc["namatol"];
+        const char* tanggal_dibaca  = doc["tanggal"];
+        const char* status_dibaca  = doc["status_bayar"];
         
 
        //LOGIKA
-       if(String(nama_dibaca)!=""){
+       if(String(rfid_dibaca)!=""){
         buzzeroke();
         Serial.println("Kartu Terdaftar!");
         Serial.println(getData);
         //POST TO SERIAL
-         Serial.print("ID       = ");Serial.println(id_dibaca);
-         Serial.print("RFID     = ");Serial.println(rfid_dibaca);
-         Serial.print("Nama     = ");Serial.println(nama_dibaca);
-         Serial.print("Alamat   = ");Serial.println(alamat_dibaca);
-         Serial.print("Telepon  = ");Serial.println(telepon_dibaca);
-         Serial.print("Waktu    = ");Serial.println(tanggal_dibaca);
-         Serial.print("saldo    = ");Serial.println(saldo_dibaca);
+         Serial.println("Silahkan Masuk!!");
+         Serial.print("RFID         = ");Serial.println(rfid_dibaca);
+         Serial.print("Nama         = ");Serial.println(nama_dibaca);
+         Serial.print("Saldo Awal   = ");Serial.println(saldoawal);
+         Serial.print("Tarif Tol    = ");Serial.println(tarif_dibaca);
+         Serial.print("Saldo Akhir  = ");Serial.println(saldoakhir);
+         Serial.print("Nama Tol     = ");Serial.println(namatol_dibaca);
+         Serial.print("Waktu        = ");Serial.println(tanggal_dibaca);
          Serial.println(status_dibaca);
          Serial.println();
        }else{
